@@ -18,7 +18,7 @@ const DEFAULT_SUPABASE_URL = 'https://qszcrlptiwircitfuela.supabase.co';
 const DEFAULT_SUPABASE_KEY = 'sb_publishable_mPDoup1hboMph_iUUlN5Jw_LzB3sWoe';
 
 const VAT_RATES = [
-  { code:'STD',  rate:20,   name:'Základná 20%' },
+  { code:'STD',  rate:23,   name:'Základná 23%' },
   { code:'RED',  rate:10,   name:'Znížená 10%' },
   { code:'ZERO', rate:0,    name:'Nulová 0%' },
   { code:'NULL', rate:null, name:'Nie je predmetom DPH' }
@@ -998,13 +998,15 @@ const InvoiceEditor = {
     }
     const totals=computed(()=>calcInvoice(items.value));
     function addEmptyItem(){
-      items.value.push({ _uid:uid(), article_id:null, name:'', description:'', quantity:1, unit:'ks', unit_price:0, vat_rate:20, discount_pct:0, discount_amount:0, total_net:0, total_vat:0, total_gross:0 });
+      items.value.push({ _uid:uid(), article_id:null, name:'', description:'', quantity:1, unit:'ks', unit_price:0, vat_rate:23, discount_pct:0, discount_amount:0, total_net:0, total_vat:0, total_gross:0 });
     }
     function addItemFromArticle(a){
-      items.value.push({ _uid:uid(), article_id:a.id, name:a.name, description:a.description||'', quantity:1, unit:a.unit||'ks', unit_price:Number(a.price||0), vat_rate:Number(a.vat_rate ?? 20), discount_pct:0, discount_amount:0, total_net:0, total_vat:0, total_gross:0 });
+      items.value.push({ _uid:uid(), article_id:a.id, name:a.name, description:a.description||'', quantity:1, unit:a.unit||'ks', unit_price:Number(a.price||0), vat_rate:Number(a.vat_rate ?? 23), discount_pct:0, discount_amount:0, total_net:0, total_vat:0, total_gross:0 });
       articles.show=false;
     }
     function removeItem(idx){ items.value.splice(idx, 1); }
+    function moveItemUp(idx){ if(idx<=0) return; const tmp=items.value[idx]; items.value[idx]=items.value[idx-1]; items.value[idx-1]=tmp; }
+    function moveItemDown(idx){ if(idx>=items.value.length-1) return; const tmp=items.value[idx]; items.value[idx]=items.value[idx+1]; items.value[idx+1]=tmp; }
     function pickPartner(p){ form.partner=p; form.partner_id=p.id; partners.show=false; }
     function openNewPartner(){ partners.show=false; partnerEditor.partner=null; partnerEditor.show=true; }
     function onPartnerSaved(p){ partnerEditor.show=false; pickPartner(p); }
@@ -1052,7 +1054,7 @@ const InvoiceEditor = {
     async function markSent(){ await save('sent'); }
     function itemGross(it){ return calcItem(it).total_gross; }
     onMounted(load);
-    return { loading, saving, form, items, totals, company, partners, articles, partnerEditor, addEmptyItem, addItemFromArticle, removeItem, pickPartner, openNewPartner, onPartnerSaved, recalcDueFromIssue, save, saveAndPdf, exportPDF, markPaid, markSent, itemGross, fmtEUR, fmtNum, VAT_RATES, ARTICLE_UNITS, INVOICE_STATUSES, PAYMENT_METHODS, emit };
+    return { loading, saving, form, items, totals, company, partners, articles, partnerEditor, addEmptyItem, addItemFromArticle, removeItem, moveItemUp, moveItemDown, pickPartner, openNewPartner, onPartnerSaved, recalcDueFromIssue, save, saveAndPdf, exportPDF, markPaid, markSent, itemGross, fmtEUR, fmtNum, VAT_RATES, ARTICLE_UNITS, INVOICE_STATUSES, PAYMENT_METHODS, emit };
   },
   template:`
     <div class="p-6 max-w-7xl mx-auto">
@@ -1086,12 +1088,12 @@ const InvoiceEditor = {
                 <div v-for="(it, idx) in items" :key="it._uid || it.id" class="grid grid-cols-12 gap-2 items-start bg-slate-50/60 rounded-lg p-2">
                   <div class="col-span-12 sm:col-span-5"><label class="text-[10px] font-semibold text-slate-500 uppercase">Názov</label><input class="input input-sm" v-model="it.name" placeholder="Napr. Konzultácia"/></div>
                   <div class="col-span-3 sm:col-span-1"><label class="text-[10px] font-semibold text-slate-500 uppercase">MJ</label><select class="input input-sm" v-model="it.unit"><option v-for="u in ARTICLE_UNITS" :key="u" :value="u">{{ u }}</option></select></div>
-                  <div class="col-span-3 sm:col-span-1"><label class="text-[10px] font-semibold text-slate-500 uppercase">Množ.</label><input class="input input-sm" type="number" step="0.001" v-model.number="it.quantity"/></div>
+                  <div class="col-span-3 sm:col-span-1"><label class="text-[10px] font-semibold text-slate-500 uppercase">Množ.</label><input class="input input-sm" type="number" step="1" v-model.number="it.quantity"/></div>
                   <div class="col-span-6 sm:col-span-2"><label class="text-[10px] font-semibold text-slate-500 uppercase">Cena/MJ</label><input class="input input-sm" type="number" step="0.01" v-model.number="it.unit_price"/></div>
                   <div class="col-span-4 sm:col-span-1"><label class="text-[10px] font-semibold text-slate-500 uppercase">DPH</label><select class="input input-sm" v-model.number="it.vat_rate"><option v-for="v in VAT_RATES" :key="v.code" :value="v.rate">{{ v.rate===null?'NaN':v.rate+'%' }}</option></select></div>
                   <div class="col-span-4 sm:col-span-1"><label class="text-[10px] font-semibold text-slate-500 uppercase">Zľava %</label><input class="input input-sm" type="number" step="0.01" v-model.number="it.discount_pct"/></div>
                   <div class="col-span-3 sm:col-span-1"><label class="text-[10px] font-semibold text-slate-500 uppercase">Spolu</label><div class="text-sm font-bold text-slate-900 py-1.5">{{ fmtEUR(itemGross(it)) }}</div></div>
-                  <div class="col-span-2 sm:col-span-1 flex justify-end pt-5"><button class="icon-btn text-red-600 btn-xs" @click="removeItem(idx)"><icon name="trash" :size="14"></icon></button></div>
+                  <div class="col-span-2 sm:col-span-1 flex items-end justify-end gap-0.5 pt-5"><button class="icon-btn text-slate-500 btn-xs" @click="moveItemUp(idx)" :disabled="idx===0"><icon name="chevron-up" :size="14"></icon></button><button class="icon-btn text-slate-500 btn-xs" @click="moveItemDown(idx)" :disabled="idx===items.length-1"><icon name="chevron-down" :size="14"></icon></button><button class="icon-btn text-red-600 btn-xs" @click="removeItem(idx)"><icon name="trash" :size="14"></icon></button></div>
                 </div>
               </div>
               <button class="btn btn-ghost btn-sm mt-3 w-full justify-center border border-dashed border-slate-300" @click="addEmptyItem"><icon name="plus" :size="14"></icon> Pridať prázdny riadok</button>
@@ -1741,7 +1743,7 @@ const Settings = {
       finally { saving.value=false; }
     }
     async function saveSequence(sq){
-      const {error}=await db.update('number_sequences', sq.id, { prefix:sq.prefix, separator:sq.separator, padding:sq.padding, format_template:sq.format_template });
+      const {error}=await db.update('number_sequences', sq.id, { prefix:sq.prefix, separator:sq.separator, padding:sq.padding, last_number:sq.last_number, format_template:sq.format_template });
       if(error) UI.toast('Chyba: '+error.message,'error');
       else UI.toast('Číselný rad uložený','success');
     }
@@ -1817,7 +1819,7 @@ const Settings = {
               <td><input class="input input-sm w-20" v-model="sq.prefix"/></td>
               <td><input class="input input-sm w-12" v-model="sq.separator"/></td>
               <td><input class="input input-sm w-14" type="number" v-model.number="sq.padding"/></td>
-              <td class="text-slate-500">{{ sq.last_number }}</td>
+              <td><input class="input input-sm w-16" type="number" v-model.number="sq.last_number"/></td>
               <td><input class="input input-sm w-44 font-mono text-xs" v-model="sq.format_template"/></td>
               <td><button class="btn btn-secondary btn-xs" @click="saveSequence(sq)"><icon name="save" :size="14"></icon></button></td>
             </tr>
