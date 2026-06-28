@@ -1,0 +1,35 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Node (ak nejaké budúcností pridáme)
+node_modules/
+package-lock.json
+
+# Env / lokálne nastavenia
+.env
+.env.local
+.env.*.local
+
+# Build artifacts
+dist/
+build/
+*.bak
+*.tmp
+
+# Supabase lokálne
+supabase/.branches
+supabase/.temp
+
+# Cache
+.cache/
+.parcel-cache/
