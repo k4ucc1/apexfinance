@@ -947,6 +947,89 @@ function generateInvoicePDF(inv, items, partner, company){
   UI.toast('PDF stiahnuté','success');
 }
 
+function printInvoice(inv, items, partner, company){
+  company=company||{}; partner=partner||{};
+  const computed = items.map(it => ({ it, c: calcItem(it) }));
+  const vatGroups={}; let subtotal=0, vatTotal=0;
+  computed.forEach(({it, c})=>{
+    const k=String(it.vat_rate ?? 'null');
+    if(!vatGroups[k]) vatGroups[k]={rate:it.vat_rate, base:0, vat:0};
+    vatGroups[k].base+=c.total_net; vatGroups[k].vat+=c.total_vat;
+    subtotal+=c.total_net; vatTotal+=c.total_vat;
+  });
+  const esc=s=>String(s||'').replace(/[<>&"']/g,c=>`&#${c.charCodeAt(0)};`);
+  const vatRows=Object.values(vatGroups).sort((a,b)=>Number(b.rate||0)-Number(a.rate||0));
+  const itemsHtml=computed.map(({it,c})=>`<tr><td>${esc(it.name)}${it.description?'<br><span class="desc">'+esc(it.description)+'</span>':''}</td><td class="c">${esc(it.unit)}</td><td class="r">${fmtNum(it.quantity,3)}</td><td class="r">${fmtEUR(it.unit_price)}</td><td class="c">${it.vat_rate===null?'NaN':it.vat_rate+'%'}</td><td class="r b">${fmtEUR(c.total_gross)}</td></tr>`).join('');
+  const vatHtml=vatRows.map(r=>`<tr><td>${r.rate===null?'Nie je predmetom':r.rate+'%'}</td><td class="r">${fmtEUR(r.base)}</td><td class="r">${fmtEUR(r.vat)}</td><td class="r">${fmtEUR(r.base+r.vat)}</td></tr>`).join('');
+  const total=(inv.total!=null)?inv.total:(subtotal+vatTotal);
+  const w=window.open('','_blank','width=900,height=700,scrollbars=yes');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Faktúra ${esc(inv.number)}</title><style>
+    *,*:before,*:after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Inter','Segoe UI',sans-serif;font-size:10px;color:#1e293b;padding:40px;max-width:210mm;margin:0 auto;background:#fff;line-height:1.3}
+    .header{display:flex;justify-content:space-between;margin-bottom:30px}
+    .header .left .name{font-size:18px;font-weight:800;color:#1e293b}
+    .header .left .row{font-size:9px;color:#64748b;margin-top:2px}
+    .header .right{text-align:right}
+    .header .right .doctype{font-size:22px;font-weight:800;color:#4f46e5}
+    .header .right .number{font-size:14px;font-weight:700;color:#1e293b;margin-top:4px}
+    .header .right .meta{font-size:9px;color:#64748b;margin-top:2px;text-align:right}
+    .header .right .due{color:#dc2626;font-weight:600}
+    .section{margin-bottom:20px}
+    .section .label{font-size:9px;color:#94a3b8;font-weight:600;margin-bottom:3px}
+    .section .val{font-size:13px;font-weight:700;color:#1e293b}
+    .section .sub{font-size:9px;color:#64748b;margin-top:2px}
+    table{width:100%;border-collapse:collapse;margin-bottom:16px}
+    table th{font-size:9px;font-weight:600;color:#64748b;text-align:left;padding:6px 8px;border-bottom:2px solid #e2e8f0;background:#f1f5f9}
+    table td{padding:6px 8px;border-bottom:1px solid #f1f5f9;font-size:9px}
+    .r{text-align:right}.c{text-align:center}.b{font-weight:700}
+    .desc{font-size:8px;color:#94a3b8}
+    .totals{display:flex;flex-direction:column;align-items:flex-end;margin-top:16px}
+    .totals .row{display:flex;justify-content:space-between;width:240px;padding:2px 0;font-size:10px;color:#64748b}
+    .totals .row.total{font-size:13px;font-weight:700;color:#1e293b;border-top:1px solid #e2e8f0;padding-top:6px;margin-top:6px}
+    .totals .row.total .val{font-size:15px;color:#4f46e5}
+    .note{margin-top:16px;font-size:9px;color:#64748b}
+    .footer{margin-top:30px;font-size:8px;color:#94a3b8;display:flex;justify-content:space-between}
+    @media print{body{padding:20mm}}@page{size:A4;margin:15mm}
+  </style></head><body>
+  <div class="header">
+    <div class="left">
+      <div class="name">${esc(company.name||'Apexholding, s.r.o.')}</div>
+      <div class="row">${[company.address, company.zip, company.city].filter(Boolean).join(', ')}</div>
+      <div class="row">I\u010CO: ${company.ico||''}    DI\u010C: ${company.dic||''}${company.ic_dph?'    I\u010C DPH: '+company.ic_dph:''}</div>
+      ${company.register_text?'<div class="row">'+esc(company.register_text)+'</div>':''}
+      ${company.iban?'<div class="row">IBAN: '+company.iban+(company.swift?'    SWIFT: '+company.swift:'')+'</div>':''}
+      ${company.email?'<div class="row">'+esc(company.email)+'</div>':''}
+    </div>
+    <div class="right">
+      <div class="doctype">FAKT\u00daRA</div>
+      <div class="number">${esc(inv.number)}</div>
+      <div class="meta">D\u00e1tum vystavenia: <b>${fmtDate(inv.issue_date)}</b></div>
+      <div class="meta">D\u00e1tum dodania: <b>${fmtDate(inv.delivery_date)}</b></div>
+      <div class="meta due">D\u00e1tum splatnosti: <b>${fmtDate(inv.due_date)}</b></div>
+      <div class="meta">Variabiln\u00fd symbol: <b>${inv.vs||''}</b></div>
+      ${inv.ks?'<div class="meta">Kon\u0161t. symbol: <b>'+inv.ks+'</b></div>':''}
+    </div>
+  </div>
+  <div class="section">
+    <div class="label">Odberate\u013e</div>
+    <div class="val">${esc(partner.name||'')}</div>
+    <div class="sub">${[partner.address, partner.zip, partner.city].filter(Boolean).join(', ')}</div>
+    <div class="sub">I\u010CO: ${partner.ico||''}    DI\u010C: ${partner.dic||''}${partner.ic_dph?'    I\u010C DPH: '+partner.ic_dph:''}</div>
+  </div>
+  <table><thead><tr><th>Popis</th><th class="c">MJ</th><th class="r">Mno\u017e.</th><th class="r">Cena/MJ</th><th class="c">DPH</th><th class="r">Spolu s DPH</th></tr></thead><tbody>${itemsHtml}</tbody></table>
+  <table><thead><tr><th>Sadzba DPH</th><th class="r">Z\u00e1klad</th><th class="r">DPH</th><th class="r">Spolu s DPH</th></tr></thead><tbody>${vatHtml}</tbody></table>
+  <div class="totals">
+    <div class="row"><span>Medzis\u00fa\u010det:</span><span>${fmtEUR(subtotal)}</span></div>
+    <div class="row"><span>DPH spolu:</span><span>${fmtEUR(vatTotal)}</span></div>
+    <div class="row total"><span>CELKOM K \u00daHRADE:</span><span class="val">${fmtEUR(total)}</span></div>
+  </div>
+  ${inv.note?'<div class="note">'+esc(inv.note)+'</div>':''}
+  <div class="footer"><span>Sp\u00f4sob \u00fahrady: ${PAYMENT_METHODS[inv.payment_method]||'Prevod'}</span><span>Vystaven\u00e9 v Apex Finance</span></div>
+  <script>window.onload=function(){window.print();window.close();}<\/script>
+  </body></html>`);
+  w.document.close();
+}
+
 const InvoiceEditor = {
   props:['invoiceId'],
   emits:['back','saved'],
@@ -1045,6 +1128,7 @@ const InvoiceEditor = {
     }
     async function saveAndPdf(){ await save(); if(form.id) generateInvoicePDF(form, items.value, form.partner, company.value); }
     function exportPDF(){ generateInvoicePDF(form, items.value, form.partner, company.value); }
+    function printInv(){ if(form.id) printInvoice(form, items.value, form.partner, company.value); else UI.toast('Najprv ulož faktúru','warn'); }
     async function markPaid(){
       const patch={status:'paid', paid_date:todayISO(), paid_amount:totals.value.total};
       const {error}=await getSB().from('invoices').update(patch).eq('id', form.id);
@@ -1054,7 +1138,7 @@ const InvoiceEditor = {
     async function markSent(){ await save('sent'); }
     function itemGross(it){ return calcItem(it).total_gross; }
     onMounted(load);
-    return { loading, saving, form, items, totals, company, partners, articles, partnerEditor, addEmptyItem, addItemFromArticle, removeItem, moveItemUp, moveItemDown, pickPartner, openNewPartner, onPartnerSaved, recalcDueFromIssue, save, saveAndPdf, exportPDF, markPaid, markSent, itemGross, fmtEUR, fmtNum, VAT_RATES, ARTICLE_UNITS, INVOICE_STATUSES, PAYMENT_METHODS, emit };
+    return { loading, saving, form, items, totals, company, partners, articles, partnerEditor, addEmptyItem, addItemFromArticle, removeItem, moveItemUp, moveItemDown, pickPartner, openNewPartner, onPartnerSaved, recalcDueFromIssue, save, saveAndPdf, exportPDF, printInv, markPaid, markSent, itemGross, fmtEUR, fmtNum, VAT_RATES, ARTICLE_UNITS, INVOICE_STATUSES, PAYMENT_METHODS, emit };
   },
   template:`
     <div class="p-6 max-w-7xl mx-auto">
@@ -1126,9 +1210,10 @@ const InvoiceEditor = {
               <div class="space-y-2 mt-4">
                 <button class="btn btn-primary w-full justify-center" @click="save()" :disabled="saving"><icon :name="saving?'loader':'save'" :size="16" :class="saving?'spin':''"></icon> Uložiť faktúru</button>
                 <button class="btn btn-secondary w-full justify-center" @click="saveAndPdf()" :disabled="saving"><icon name="download" :size="16"></icon> Uložiť + PDF</button>
-                <div class="grid grid-cols-2 gap-2">
-                  <button v-if="form.id" class="btn btn-secondary btn-sm justify-center" @click="exportPDF"><icon name="print" :size="14"></icon> PDF</button>
-                  <button v-if="form.id && form.status!=='paid'" class="btn btn-secondary btn-sm justify-center text-emerald-700" @click="markPaid"><icon name="check" :size="14"></icon> Zaplatené</button>
+                <div class="grid grid-cols-3 gap-2">
+                  <button v-if="form.id" class="btn btn-secondary btn-xs justify-center" @click="exportPDF"><icon name="file-text" :size="13"></icon> PDF</button>
+                  <button v-if="form.id" class="btn btn-secondary btn-xs justify-center" @click="printInv"><icon name="print" :size="13"></icon> Tlač</button>
+                  <button v-if="form.id && form.status!=='paid'" class="btn btn-secondary btn-xs justify-center text-emerald-700" @click="markPaid"><icon name="check" :size="13"></icon> Zapl.</button>
                 </div>
                 <button v-if="form.id && form.status==='draft'" class="btn btn-ghost btn-sm w-full justify-center text-blue-700" @click="markSent"><icon name="send" :size="14"></icon> Označiť ako odoslanú</button>
               </div>

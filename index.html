@@ -69,6 +69,7 @@ table.data tbody tr:hover{background:#f8fafc}
 .stat-card{background:#fff;border:1px solid #e2e8f0;border-radius:.85rem;padding:1.25rem;transition:all .2s ease}
 .stat-card:hover{box-shadow:0 8px 24px rgba(15,23,42,.06);transform:translateY(-2px)}
 .field-required::after{content:" *";color:#dc2626}
+@media print{body>*{display:none!important}body:after{content:"Pou\u017eite tla\u010didlo Tla\u010d v editore fakt\u00fary";position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-size:18px;color:#64748b}}
 </style>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased">
@@ -95,6 +96,6 @@ table.data tbody tr:hover{background:#f8fafc}
   <toasts></toasts>
   <confirm-dialog></confirm-dialog>
 </div>
-<script src="apex-app.js?v=20260628c"></script>
+<script src="apex-app.js?v=20260628d"></script>
 </body>
 </html>
