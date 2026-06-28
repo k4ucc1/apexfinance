@@ -69,7 +69,7 @@ Zmeň na svoje hodnoty.
 
 ### Alebo B: Použi Setup screen (ak aplikáciu iba spúšťaš)
 
-1. Otvor `apex-fakturacia.html`
+1. Otvor `index.html`
 2. Ak je prvýkrát alebo localStorage je prázdne, zobrazí sa Setup screen
 3. Zadaj URL + Publishable key → „Otestovať a pripojiť"
 4. Prihlás sa používateľom z KROK 4

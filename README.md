@@ -4,7 +4,8 @@ Moderný fakturačný systém pre **Apexholding, s.r.o.** — single-page HTML a
 
 > **Verzia:** 1.0.1  
 > **Posledná aktualizácia:** 2026-06  
-> **Stav:** Produkčná (MVP)
+> **Stav:** Produkčná (MVP)  
+> **🌐 Online:** https://k4ucc1.github.io/cauntpex/
 
 ---
 
@@ -35,7 +36,15 @@ Moderný fakturačný systém pre **Apexholding, s.r.o.** — single-page HTML a
 
 ## 🚀 Spustenie
 
-### Možnosť A — Lokálne (odporúčané)
+### 🌐 Online (odporúčané)
+
+**Priamo z GitHub Pages (nič sa nemusí inštalovať):**
+
+👉 **https://k4ucc1.github.io/cauntpex/**
+
+Stačí kliknúť a prihlásiť sa.
+
+### Možnosť A — Lokálne
 
 ```bash
 # 1. Klonovať repozitár
@@ -43,19 +52,18 @@ git clone https://github.com/k4ucc1/cauntpex.git
 cd cauntpex
 
 # 2. Otvoriť v prehliadači
-#    - Windows: dvojklik na apex-fakturacia.html
-#    - Alebo: start apex-fakturacia.html
+#    - Windows: dvojklik na index.html
+#    - Alebo: start index.html
 #    - Alebo: v prehliadači Ctrl+O → vybrať súbor
 ```
 
 To je všetko! Aplikácia nabehne s prednastaveným pripojením k Supabase.
 
-### Možnosť B — Online (Netlify, Vercel, GitHub Pages)
+### Možnosť B — Iný hosting
 
-Pre **súkromný repozitár** (ako je tento):
-- **Netlify** (odporúčané, zadarmo pre private repos): spoj s GitHub → automatický deploy pri push → URL `cauntpex.netlify.app`
-- **Vercel**: podobne ako Netlify
-- **GitHub Pages**: iba pre **public** repá (v bezplatnej verzii)
+Ak by si chcel inde (Vercel, Netlify, vlastný server):
+- Stačí nahrať `index.html` + `apex-app.js` kdekoľvek s podporou statických súborov
+- Žiadny build step, žiadne npm install
 
 ---
 
@@ -90,7 +98,7 @@ const DEFAULT_SUPABASE_KEY = 'sb_publishable_TVOJ_KEY';
 - ✅ Bez prihásenia vidíť len prázdne polia `[]` (deny by default)
 - ✅ Heslá sú v Supabase Auth (bcrypt hash), nikdy v HTML
 
-Pre **private repo** (tento prípad): kód a key vidíš len ty a pozvaní spolupracovníci.
+Pre **public repo** (tento prípad): kód a publishable key sú verejne viditeľné, ale **bezpečné** vďaka RLS. Heslá a dáta sú chránené v Supabase.
 
 ---
 
@@ -116,7 +124,7 @@ Pre **private repo** (tento prípad): kód a key vidíš len ty a pozvaní spolu
 
 ```
 cauntpex/
-├── apex-fakturacia.html       # Hlavný HTML (6 KB)
+├── index.html                # Hlavný HTML (6 KB) - vstupný bod
 ├── apex-app.js                # Vue aplikácia (~148 KB)
 ├── apex-migration-fix.sql     # SQL migrácia databázy (v1.0.1)
 ├── README.md                  # Tento súbor
@@ -152,7 +160,7 @@ git push
 
 ### Testovanie zmien lokálne
 Po klone alebo change:
-1. Otvor `apex-fakturacia.html` v prehliadači
+1. Otvor `index.html` v prehliadači
 2. Ak vidíš zmenu — OK
 3. Ak ti prehliadač cacheuje starú verziu: **Ctrl+Shift+R** (hard refresh)
 
