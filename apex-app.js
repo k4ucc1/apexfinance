@@ -7,7 +7,7 @@ const { createApp, ref, reactive, computed, onMounted, onBeforeUnmount, watch, n
 const { defineEmits, defineProps } = { defineEmits: () => {}, defineProps: () => {} };
 
 /* =============================== CONFIG ================================== */
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 const LS_CONFIG = 'apex_finance_config';
 const LS_LAST_USER = 'apex_finance_last_user';
 const LS_LOGIN_ATTEMPTS = 'apex_login_attempts';
