@@ -517,7 +517,7 @@ const Sidebar = {
           <div v-if="!collapsed" class="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">{{ grp.group }}</div>
           <div v-else class="my-2 mx-3 border-t border-slate-100"></div>
           <div class="space-y-0.5 mb-3">
-            <div v-for="item in grp.items" :key="item.key" :class="[(item.view||item.key)===current ? 'active' : '', item.disabled ? 'disabled' : '']" class="nav-item" :title="collapsed ? item.label : ''" @click="!item.disabled && $emit('navigate', item)">
+            <div v-for="item in grp.items" :key="item.key" :class="[item.key===current ? 'active' : '', item.disabled ? 'disabled' : '']" class="nav-item" :title="collapsed ? item.label : ''" @click="!item.disabled && $emit('navigate', item)">
               <icon :name="item.icon" :size="20" class="shrink-0"></icon>
               <span v-if="!collapsed" class="flex-1 truncate">{{ item.label }}</span>
               <span v-if="!collapsed && item.badge" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-600">{{ item.badge }}</span>
@@ -2072,7 +2072,7 @@ const App = {
       if(n==='receipts') return 'receipt-list';
       if(n==='receipt-new') return 'receipt-editor';
       if(n==='receipt-edit') return 'receipt-editor';
-      if(n==='partners') return 'partners';
+      if(n==='partners' || n==='customers' || n==='suppliers') return 'partners';
       if(n==='articles') return 'articles';
       if(n==='article-groups') return 'article-groups';
       if(n==='reports') return 'reports';
@@ -2111,8 +2111,9 @@ const App = {
     function navTo(item){
       if(typeof item==='string') item={key:item};
       if(item.disabled) return;
-      const navKey=item.view || item.key;
-      currentNav.value=navKey;
+      // Použi item.key (nie view) ako navKey - aby Zákazníci a Dodávatelia
+      // mali rozdielny active state v sidebare
+      currentNav.value=item.key;
       viewProps.type=item.params?.type;
       viewProps.invoiceId=item.params?.id;
       viewProps.receiptId=item.params?.id;
