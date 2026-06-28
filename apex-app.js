@@ -1,15 +1,15 @@
 "use strict";
 /* ============================================================================
-   ApexHolding Fakturácia — Single Page App
+   Apex Finance — Single Page App
    Vue 3 + Tailwind + Supabase + pdfMake + Chart.js
    ============================================================================ */
 const { createApp, ref, reactive, computed, onMounted, onBeforeUnmount, watch, nextTick, defineAsyncComponent } = Vue;
 const { defineEmits, defineProps } = { defineEmits: () => {}, defineProps: () => {} };
 
 /* =============================== CONFIG ================================== */
-const APP_VERSION = '1.0.0';
-const LS_CONFIG = 'apex_invoice_config';
-const LS_LAST_USER = 'apex_invoice_last_user';
+const APP_VERSION = '1.1.0';
+const LS_CONFIG = 'apex_finance_config';
+const LS_LAST_USER = 'apex_finance_last_user';
 const LS_LOGIN_ATTEMPTS = 'apex_login_attempts';
 const IDLE_TIMEOUT_MIN = 10;
 const LOGIN_MAX_ATTEMPTS = 5;
@@ -39,24 +39,24 @@ const ARTICLE_GROUP_TYPES = { service:'Služba', goods:'Tovar', material:'Materi
 
 const NAV = [
   { group:'Hlavné', items:[
-    { key:'dashboard', label:'Dashboard',          icon:'layout-dashboard' },
-    { key:'invoices',  label:'Faktúry',            icon:'file-text' },
-    { key:'receipts',  label:'Prijímové doklady',  icon:'receipt' },
+    { key:'dashboard', label:'Dashboard',          icon:'layout-dashboard', color:'#3b82f6' },
+    { key:'invoices',  label:'Faktúry',            icon:'file-text',         color:'#6366f1' },
+    { key:'receipts',  label:'Prijímové doklady',  icon:'receipt',           color:'#10b981' },
   ]},
   { group:'Adresár', items:[
-    { key:'customers', label:'Zákazníci',   icon:'users',  view:'partners', params:{type:'customer'} },
-    { key:'suppliers', label:'Dodávatelia', icon:'truck',  view:'partners', params:{type:'supplier'} },
+    { key:'customers', label:'Zákazníci',   icon:'users',  color:'#f59e0b', view:'partners', params:{type:'customer'} },
+    { key:'suppliers', label:'Dodávatelia', icon:'truck',  color:'#06b6d4', view:'partners', params:{type:'supplier'} },
   ]},
   { group:'Sklad', items:[
-    { key:'articles',       label:'Artikle',           icon:'package' },
-    { key:'article-groups', label:'Skupiny artiklov',  icon:'folder-tree' },
+    { key:'articles',       label:'Artikle',           icon:'package',      color:'#f43f5e' },
+    { key:'article-groups', label:'Skupiny artiklov',  icon:'folder-tree',  color:'#8b5cf6' },
   ]},
   { group:'Analýza', items:[
-    { key:'reports',     label:'Reporty',       icon:'bar-chart-3' },
-    { key:'accounting',  label:'Účtovníctvo',   icon:'calculator', disabled:true, badge:'Soon' },
+    { key:'reports',     label:'Reporty',       icon:'bar-chart-3', color:'#14b8a6' },
+    { key:'accounting',  label:'Účtovníctvo',   icon:'calculator',  color:'#64748b', disabled:true, badge:'Soon' },
   ]},
   { group:'Systém', items:[
-    { key:'settings',    label:'Nastavenia',    icon:'settings' },
+    { key:'settings',    label:'Nastavenia',    icon:'settings', color:'#475569' },
   ]}
 ];
 
@@ -99,7 +99,7 @@ function calcInvoice(items, useRounding=true) {
   };
 }
 
-/* IČO lookup — registeruz.sk s fallback proxy */
+/* IČO lookup — registeruz.sk (SK) + ares.gov.cz (CZ) */
 async function lookupSlovakICO(ico) {
   const clean=(ico||'').replace(/\D/g,'');
   if(clean.length!==8) throw new Error('IČO musí mať 8 číslic');
@@ -127,6 +127,22 @@ function normalizeRegisteruz(rec, ico) {
     address:[rec.ulica,rec.cisloScri].filter(Boolean).join(' '),
     city:rec.obec||'', zip:(rec.psc||'').toString().replace(/(\d{3})(\d{2})/,'$1 $2'),
     country:'Slovensko', source:'registeruz.sk', raw:rec
+  };
+}
+async function lookupCzechICO(ico) {
+  const clean=(ico||'').replace(/\D/g,'');
+  if(clean.length!==8) throw new Error('IČO musí mať 8 číslic');
+  const url=`https://ares.gov.cz/ekonomicke-subjekty-v-be/rest/ekonomicke-subjekty/${clean}`;
+  const r=await fetch(url);
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  const data=await r.json();
+  if(!data || data.ico!==clean) throw new Error('Subjekt sa nenašiel');
+  return {
+    ico:clean, dic:data.dic||'', ic_dph:data.dic?('CZ'+data.dic):'',
+    name:data.obchodniJmeno||data.nazevOsoby||'',
+    address:[data.ulice,data.cisloOrientacni||data.cisloDomovni].filter(Boolean).join(' '),
+    city:data.mesto||'', zip:(data.psc||'').toString().replace(/(\d{3})(\d{2})/,'$1 $2'),
+    country:'Česko', source:'ares.gov.cz', raw:data
   };
 }
 
@@ -373,7 +389,7 @@ const SetupScreen = {
           <div class="inline-flex items-center justify-center w-16 h-16 bg-brand-600 rounded-2xl shadow-lg shadow-brand-600/30 mb-4">
             <icon name="landmark" :size="32" class="text-white"></icon>
           </div>
-          <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">ApexHolding Fakturácia</h1>
+          <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight">Apex Finance</h1>
           <p class="text-slate-500 mt-2">Pripojenie k databáze Supabase</p>
         </div>
         <div class="card p-7 shadow-xl">
@@ -461,7 +477,7 @@ const LoginScreen = {
             <icon name="landmark" :size="32" class="text-white"></icon>
           </div>
           <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Prihlásenie</h1>
-          <p class="text-slate-500 mt-1.5 text-sm">ApexHolding Fakturácia</p>
+          <p class="text-slate-500 mt-1.5 text-sm">Apex Finance</p>
         </div>
         <div class="card p-7 shadow-xl">
           <form @submit.prevent="submit" class="space-y-4">
@@ -499,10 +515,10 @@ const LoginScreen = {
 
 /* =============================== SIDEBAR + TOPBAR ======================= */
 const Sidebar = {
-  props:['current','collapsed'],
-  emits:['navigate'],
+  props:['current','collapsed','mobileOpen'],
+  emits:['navigate','close-mobile'],
   template:`
-    <aside :class="collapsed ? 'w-20' : 'w-64'" class="bg-white border-r border-slate-200 flex flex-col shrink-0 transition-all duration-200 h-screen sticky top-0">
+    <aside :class="[(collapsed ? 'w-20' : 'w-64'), mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0']" class="bg-white border-r border-slate-200 flex flex-col shrink-0 transition-all duration-200 fixed md:static inset-y-0 left-0 z-50 md:z-auto">
       <div class="h-16 flex items-center gap-3 px-5 border-b border-slate-100 shrink-0">
         <div class="w-9 h-9 bg-brand-600 rounded-xl flex items-center justify-center shrink-0 shadow-md shadow-brand-600/30">
           <icon name="landmark" :size="20" class="text-white"></icon>
@@ -517,8 +533,10 @@ const Sidebar = {
           <div v-if="!collapsed" class="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">{{ grp.group }}</div>
           <div v-else class="my-2 mx-3 border-t border-slate-100"></div>
           <div class="space-y-0.5 mb-3">
-            <div v-for="item in grp.items" :key="item.key" :class="[item.key===current ? 'active' : '', item.disabled ? 'disabled' : '']" class="nav-item" :title="collapsed ? item.label : ''" @click="!item.disabled && $emit('navigate', item)">
-              <icon :name="item.icon" :size="20" class="shrink-0"></icon>
+            <div v-for="item in grp.items" :key="item.key" :class="[item.key===current ? 'active' : '', item.disabled ? 'disabled' : '']" class="nav-item" :title="collapsed ? item.label : ''" @click="!item.disabled && ($emit('navigate', item), $emit('close-mobile'))">
+              <div class="nav-icon-wrap" :style="{background: (item.color||'#6366f1')+'1f', color: item.color||'#6366f1'}">
+                <icon :name="item.icon" :size="20"></icon>
+              </div>
               <span v-if="!collapsed" class="flex-1 truncate">{{ item.label }}</span>
               <span v-if="!collapsed && item.badge" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-600">{{ item.badge }}</span>
             </div>
@@ -531,21 +549,22 @@ const Sidebar = {
 };
 const TopBar = {
   props:['user','title'],
-  emits:['logout','toggle-sidebar','quick-action'],
+  emits:['logout','toggle-sidebar','toggle-mobile','quick-action'],
   setup(props, {emit}){
     const menuOpen=ref(false);
     return {props, menuOpen, emit};
   },
   template:`
-    <header class="h-16 bg-white border-b border-slate-200 px-5 flex items-center gap-4 shrink-0 sticky top-0 z-30">
-      <button class="icon-btn" @click="$emit('toggle-sidebar')"><icon name="menu" :size="22"></icon></button>
-      <h1 class="text-lg font-bold text-slate-900 flex-1 truncate">{{ props.title }}</h1>
+    <header class="h-16 bg-white border-b border-slate-200 px-4 sm:px-5 flex items-center gap-3 sm:gap-4 shrink-0 sticky top-0 z-30">
+      <button class="icon-btn md:hidden" @click="$emit('toggle-mobile')" title="Menu"><icon name="menu" :size="22"></icon></button>
+      <button class="icon-btn hidden md:inline-flex" @click="$emit('toggle-sidebar')" title="Zbaliť/Rozbaliť panel"><icon name="menu" :size="22"></icon></button>
+      <h1 class="text-base sm:text-lg font-bold text-slate-900 flex-1 truncate">{{ props.title }}</h1>
       <button class="btn btn-primary btn-sm" @click="$emit('quick-action','new-invoice')"><icon name="plus" :size="16"></icon> <span class="hidden sm:inline">Nová faktúra</span></button>
-      <div class="w-px h-8 bg-slate-200"></div>
+      <div class="w-px h-8 bg-slate-200 hidden sm:block"></div>
       <div class="relative">
         <button class="flex items-center gap-2 hover:bg-slate-100 rounded-lg pl-1 pr-2 py-1 transition-colors" @click="menuOpen=!menuOpen">
           <div class="w-8 h-8 bg-brand-100 text-brand-700 rounded-lg flex items-center justify-center text-xs font-bold">{{ props.user?.email?.[0]?.toUpperCase() || 'U' }}</div>
-          <icon name="chevron-down" :size="16" class="text-slate-400"></icon>
+          <icon name="chevron-down" :size="16" class="text-slate-400 hidden sm:block"></icon>
         </button>
         <transition name="fade">
           <div v-if="menuOpen" class="absolute right-0 top-full mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-xl py-1 z-50" v-click-outside="()=>menuOpen=false">
@@ -626,8 +645,9 @@ const Dashboard = {
         options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ y:{grid:{color:'#f1f5f9'},ticks:{callback:v=>v+' €'}}, x:{grid:{display:false}} } }
       });
     }
+    const emptyState=computed(()=> stats.monthCount===0 && stats.outstanding===0 && stats.overdue===0 && recent.value.length===0 && !loading.value);
     onMounted(load);
-    return { loading, stats, recent, overdueList, canvas, fmtEUR, fmtDate, INVOICE_STATUSES, emit, refresh:load };
+    return { loading, stats, recent, overdueList, emptyState, canvas, fmtEUR, fmtDate, INVOICE_STATUSES, emit, refresh:load };
   },
   template:`
     <div class="p-6 space-y-6">
@@ -643,6 +663,16 @@ const Dashboard = {
         </div>
       </div>
       <div v-if="loading" class="text-center py-12"><icon name="loader" :size="32" class="spin mx-auto text-slate-400"></icon></div>
+      <div v-else-if="emptyState" class="text-center py-16">
+        <div class="w-20 h-20 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-4"><icon name="file-text" :size="36" class="text-slate-400"></icon></div>
+        <h3 class="text-xl font-bold text-slate-900 mb-1">Zatiaľ tu nič nie je</h3>
+        <p class="text-slate-500 mb-6 max-w-md mx-auto">Vytvorte svoju prvú faktúru alebo pridajte zákazníkov a artikle pre začiatok.</p>
+        <div class="flex flex-wrap gap-3 justify-center">
+          <button class="btn btn-primary" @click="emit('quick-action','new-invoice')"><icon name="plus" :size="18"></icon> Vystaviť prvú faktúru</button>
+          <button class="btn btn-secondary" @click="emit('navigate',{key:'customers'})"><icon name="users" :size="18"></icon> Pridať zákazníkov</button>
+          <button class="btn btn-secondary" @click="emit('navigate',{key:'articles'})"><icon name="package" :size="18"></icon> Pridať artikle</button>
+        </div>
+      </div>
       <div v-else>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div class="stat-card">
@@ -910,7 +940,7 @@ function generateInvoicePDF(inv, items, partner, company){
   if(inv.note) body.push({ text: inv.note, fontSize:9, color:'#64748b', margin:[0,16,0,0] });
   body.push({ columns:[
     { width:'*', text:`Spôsob úhrady: ${(PAYMENT_METHODS[inv.payment_method]||'Prevod')}`, fontSize:8, color:'#94a3b8', margin:[0,30,0,0] },
-    { width:'auto', text:'Vystavené v ApexHolding Fakturácia', fontSize:8, color:'#94a3b8', alignment:'right', margin:[0,30,0,0] }
+    { width:'auto', text:'Vystavené v Apex Finance', fontSize:8, color:'#94a3b8', alignment:'right', margin:[0,30,0,0] }
   ] });
   const doc={ content:body, pageSize:'A4', pageMargins:[40,40,40,40], defaultStyle:{ font:'Roboto', fontSize:10, color:'#1e293b', lineHeight:1.2 }, styles:{ th:{ bold:true, fontSize:9, color:'#64748b', fillColor:'#f1f5f9' } } };
   pdfMake.createPdf(doc).download(`Faktura_${inv.number}.pdf`);
@@ -1938,17 +1968,75 @@ const PartnerEditor = {
   setup(props, {emit}){
     const form=reactive(emptyForm());
     const saving=ref(false), lookupLoading=ref(false), lookupMsg=ref(null);
+    const errors=reactive({});
+    const suggestName=ref(''), suggestResults=ref([]), suggestOpen=ref(false);
+    let nameInput=null, suggestTimer=null, allPartnerNames=[];
 
     function emptyForm(){ return { id:null, type:props.defaultType||'customer', name:'', ico:'', dic:'', ic_dph:'', vat_payer:false, is_person:false, address:'', city:'', zip:'', country:'Slovensko', email:'', phone:'', contact_person:'', iban:'', note:'' }; }
     function fill(p){ Object.assign(form, emptyForm(), p||{}); }
-    watch(()=>props.show, v=>{ if(v){ lookupMsg.value=null; fill(props.partner); } });
+    function clearErrors(){ Object.keys(errors).forEach(k=>delete errors[k]); }
+
+    async function loadAllPartnerNames(){
+      try {
+        const {data}=await getSB().from('partners').select('id,name');
+        if(data) allPartnerNames=data.filter(p=>p.name).map(p=>({id:p.id,name:p.name}));
+      } catch(e){ allPartnerNames=[]; }
+    }
+
+    watch(()=>props.show, v=>{
+      if(v){
+        lookupMsg.value=null; clearErrors(); fill(props.partner); suggestResults.value=[];
+        loadAllPartnerNames();
+      }
+    });
     watch(()=>props.partner, p=>{ if(props.show) fill(p); });
 
+    function onNameInput(){
+      clearErrors();
+      const q=(form.name||'').trim().toLowerCase();
+      if(!q || form.id){ suggestResults.value=[]; suggestOpen.value=false; return; }
+      if(suggestTimer) clearTimeout(suggestTimer);
+      suggestTimer=setTimeout(()=>{
+        const seen=new Set();
+        suggestResults.value=allPartnerNames
+          .filter(p=>p.name.toLowerCase()!==q && p.name.toLowerCase().includes(q))
+          .filter(p=>{ if(seen.has(p.name.toLowerCase())) return false; seen.add(p.name.toLowerCase()); return true; })
+          .slice(0,6);
+        suggestOpen.value=suggestResults.value.length>0;
+      },250);
+    }
+    function pickSuggestion(p){
+      suggestOpen.value=false; suggestResults.value=[];
+      UI.toast(`Kontakt „${p.name}" už existuje — upravte ho v adresári.`,'info');
+      emit('close');
+    }
+
+    function validate(){
+      clearErrors();
+      let ok=true;
+      if(!(form.name||'').trim()){ errors.name='Názov je povinný'; ok=false; }
+      if(!form.is_person){
+        const icoClean=(form.ico||'').replace(/\D/g,'');
+        if(!icoClean || icoClean.length!==8){ errors.ico='IČO je povinné (8 číslic)'; ok=false; }
+      }
+      if(form.vat_payer){
+        if(!(form.dic||'').trim()){ errors.dic='DIČ je povinné pre platcu DPH'; ok=false; }
+      }
+      if(!form.is_person && !(form.address||'').trim()){
+        errors.address='Adresa je povinná pre firmu'; ok=false;
+      }
+      return ok;
+    }
+
     async function lookupICO(){
-      if(!form.ico || form.ico.replace(/\D/g,'').length!==8){ UI.toast('Zadaj IČO (8 číslic)','warn'); return; }
+      const icoClean=(form.ico||'').replace(/\D/g,'');
+      if(icoClean.length!==8){ UI.toast('Zadaj IČO (8 číslic)','warn'); return; }
       lookupLoading.value=true; lookupMsg.value=null;
       try {
-        const data=await lookupSlovakICO(form.ico);
+        let data, skErr, czErr;
+        try { data=await lookupSlovakICO(form.ico); } catch(e){ skErr=e; }
+        if(!data) try { data=await lookupCzechICO(form.ico); } catch(e){ czErr=e; }
+        if(!data){ throw new Error(skErr?.message||czErr?.message||'Subjekt sa nenašiel v SK ani CZ registri'); }
         if(form.name && data.name && form.name.toLowerCase()!==data.name.toLowerCase()){
           lookupMsg.value={type:'warn', text:`Register uvádza iný názov: „${data.name}". Použiť z registra?`, data};
         } else {
@@ -1958,7 +2046,6 @@ const PartnerEditor = {
         UI.toast('Načítané z registra','success');
       } catch(e){
         lookupMsg.value={type:'err', text:'Nepodarilo sa načítať: '+e.message};
-        UI.toast('Lookup zlyhal: '+e.message,'error');
       } finally { lookupLoading.value=false; }
     }
     function applyRegistry(){ if(lookupMsg.value?.data){ applyData(lookupMsg.value.data); lookupMsg.value={type:'ok', text:'Údaje z registra použité.'}; } }
@@ -1971,8 +2058,17 @@ const PartnerEditor = {
       if(!form.zip) form.zip=data.zip;
       if(data.dic) form.vat_payer=true;
     }
+
     async function save(){
-      if(!form.name){ UI.toast('Názov je povinný','warn'); return; }
+      if(!validate()) return;
+      try {
+        const icoClean=(form.ico||'').replace(/\D/g,'');
+        if(icoClean.length===8 && !form.id){
+          const {data:dup}=await getSB().from('partners').select('id,name').eq('ico',icoClean).maybeSingle();
+          if(dup){ errors.ico='IČO už existuje: '+dup.name; UI.toast('IČO už používa iný kontakt','error'); return; }
+        }
+      } catch(e){ /* skip dup check on error */ }
+
       saving.value=true;
       try {
         const payload={...form};
@@ -1989,7 +2085,7 @@ const PartnerEditor = {
       } catch(e){ UI.toast('Chyba: '+e.message,'error'); }
       finally { saving.value=false; }
     }
-    return { form, saving, lookupLoading, lookupMsg, lookupICO, applyRegistry, save, emit, props, PARTNER_TYPES };
+    return { form, saving, lookupLoading, lookupMsg, errors, suggestOpen, suggestResults, onNameInput, pickSuggestion, lookupICO, applyRegistry, save, emit, props, PARTNER_TYPES };
   },
   template:`
     <transition name="modal">
@@ -2005,10 +2101,19 @@ const PartnerEditor = {
                 <div><label class="label">Typ kontaktu</label><select class="input" v-model="form.type"><option v-for="(l,v) in PARTNER_TYPES" :key="v" :value="v">{{ l }}</option></select></div>
                 <div class="flex items-end"><div class="flex items-center gap-2 h-[42px]"><input type="checkbox" id="vatp" v-model="form.vat_payer" class="w-4 h-4 rounded accent-brand-600"/><label for="vatp" class="text-sm font-medium text-slate-700 cursor-pointer">Platca DPH</label></div></div>
               </div>
-              <div><label class="label field-required">Názov firmy / Meno</label><input class="input" v-model="form.name" placeholder="Apexholding, s.r.o." /></div>
+              <div>
+                <label class="label field-required">Názov firmy / Meno</label>
+                <input class="input" v-model="form.name" @input="onNameInput" placeholder="Apexholding, s.r.o." />
+                <div v-if="errors.name" class="text-xs text-red-500 mt-0.5">{{ errors.name }}</div>
+                <div v-if="suggestOpen" class="relative">
+                  <div class="absolute top-1 left-0 right-0 z-20 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                    <div v-for="s in suggestResults" :key="s.id" class="px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0" @click="pickSuggestion(s)">„{{ s.name }}" — <span class="text-xs text-slate-400">upraviť existujúci</span></div>
+                  </div>
+                </div>
+              </div>
               <div class="grid grid-cols-3 gap-3">
-                <div><label class="label">IČO</label><div class="flex gap-1"><input class="input flex-1" v-model="form.ico" placeholder="12345678" maxlength="8"/><button class="btn btn-secondary px-2" @click="lookupICO" :disabled="lookupLoading" title="Načítať z registra"><icon :name="lookupLoading?'loader':'search'" :size="16" :class="lookupLoading?'spin':''"></icon></button></div></div>
-                <div><label class="label">DIČ</label><input class="input" v-model="form.dic" placeholder="1234567890"/></div>
+                <div><label class="label" :class="{'field-required':!form.is_person}">IČO</label><div class="flex gap-1"><input class="input flex-1" v-model="form.ico" placeholder="12345678" maxlength="8"/><button class="btn btn-secondary px-2" @click="lookupICO" :disabled="lookupLoading" title="Načítať z registra"><icon :name="lookupLoading?'loader':'search'" :size="16" :class="lookupLoading?'spin':''"></icon></button></div><div v-if="errors.ico" class="text-xs text-red-500 mt-0.5">{{ errors.ico }}</div></div>
+                <div><label class="label" :class="{'field-required':form.vat_payer}">DIČ</label><input class="input" v-model="form.dic" placeholder="1234567890"/><div v-if="errors.dic" class="text-xs text-red-500 mt-0.5">{{ errors.dic }}</div></div>
                 <div><label class="label">IČ DPH</label><input class="input" v-model="form.ic_dph" placeholder="SK1234567890"/></div>
               </div>
               <div v-if="lookupMsg" :class="{'bg-emerald-50 border-emerald-200 text-emerald-700':lookupMsg.type==='ok','bg-amber-50 border-amber-200 text-amber-700':lookupMsg.type==='warn','bg-red-50 border-red-200 text-red-700':lookupMsg.type==='err'}" class="border rounded-lg p-2.5 text-xs flex items-center gap-2">
@@ -2016,7 +2121,7 @@ const PartnerEditor = {
                 <span class="flex-1">{{ lookupMsg.text }}</span>
                 <button v-if="lookupMsg.type==='warn'" class="underline font-semibold" @click="applyRegistry">Použiť register</button>
               </div>
-              <div><label class="label">Adresa (ulica, číslo)</label><input class="input" v-model="form.address" placeholder="Hlavná 123"/></div>
+              <div><label class="label" :class="{'field-required':!form.is_person}">Adresa (ulica, číslo)</label><input class="input" v-model="form.address" placeholder="Hlavná 123"/><div v-if="errors.address" class="text-xs text-red-500 mt-0.5">{{ errors.address }}</div></div>
               <div class="grid grid-cols-3 gap-3">
                 <div><label class="label">PSČ</label><input class="input" v-model="form.zip" placeholder="811 01"/></div>
                 <div><label class="label">Mesto</label><input class="input" v-model="form.city" placeholder="Bratislava"/></div>
@@ -2034,7 +2139,7 @@ const PartnerEditor = {
             </div>
             <div class="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-2 sticky bottom-0">
               <button class="btn btn-secondary" @click="emit('close')">Zrušiť</button>
-              <button class="btn btn-primary" @click="save" :disabled="saving || !form.name"><icon :name="saving?'loader':'save'" :size="16" :class="saving?'spin':''"></icon> Uložiť</button>
+              <button class="btn btn-primary" @click="save" :disabled="saving"><icon :name="saving?'loader':'save'" :size="16" :class="saving?'spin':''"></icon> Uložiť</button>
             </div>
           </div>
         </transition>
@@ -2049,6 +2154,7 @@ const App = {
     const bootState=ref('init');
     const user=ref(null);
     const collapsed=ref(false);
+    const mobileNav=ref(false);
     const currentNav=ref('dashboard');
     const viewKey=ref(0);
     const viewProps=reactive({});
@@ -2121,6 +2227,7 @@ const App = {
       viewProps.defaultType=item.params?.type;
       viewProps.search=item.params?.q;
       viewKey.value++;
+      mobileNav.value=false; // Zavri mobile drawer po navigácii
     }
     function goBack(){ navTo({key: historyBackTarget()}); }
     function historyBackTarget(){
@@ -2150,7 +2257,7 @@ const App = {
     }
     onMounted(initBoot);
     onBeforeUnmount(stopActivityMonitor);
-    return { bootState, user, collapsed, currentNav, currentView, viewKey, viewProps, pageTitle, onSetupDone, onLoginSuccess, logout, navTo, goBack, onQuickAction };
+    return { bootState, user, collapsed, mobileNav, currentNav, currentView, viewKey, viewProps, pageTitle, onSetupDone, onLoginSuccess, logout, navTo, goBack, onQuickAction };
   }
 };
 

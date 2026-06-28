@@ -1,5 +1,5 @@
 -- ============================================================================
--- ApexHolding Fakturácia — FIX MIGRATION (v1.0.1)
+-- Apex Finance — FIX MIGRATION (v1.0.1)
 -- ----------------------------------------------------------------------------
 -- Tento skript opraví všetky chýbajúce veci v databáze:
 --   1. DROP NOT NULL na tax_rates.rate

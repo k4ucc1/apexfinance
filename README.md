@@ -1,36 +1,37 @@
-# 🔷 ApexHolding Fakturácia
+# 💎 Apex Finance
 
-Moderný fakturačný systém pre **Apexholding, s.r.o.** — single-page HTML aplikácia s backendom na Supabase.
+Moderný fakturačný a pokladničný systém pre **Apexholding, s.r.o.** — single-page HTML aplikácia s cloud backendom.
 
-> **Verzia:** 1.0.1  
+> **Verzia:** 1.1.0  
 > **Posledná aktualizácia:** 2026-06  
 > **Stav:** Produkčná (MVP)  
-> **🌐 Online:** https://k4ucc1.github.io/cauntpex/
+> **🌐 Online:** https://k4ucc1.github.io/apexfinance/
 
 ---
 
 ## ✨ Funkcie
 
 ### Aktuálne (MVP)
-- 📊 **Dashboard** — KPI karty, graf obratu za 6 mesiacov (Chart.js), prehľad po splatnosti
-- 📄 **Faktúry** — tvorba, editácia, statusy (návrh/odoslaná/zaplatená/po splatnosti/stornovaná), PDF export (pdfMake)
+- 📊 **Dashboard** — KPI karty, graf obratu za 6 mesiacov, prehľad po splatnosti
+- 📄 **Faktúry** — tvorba, editácia, statusy (návrh / odoslaná / zaplatená / po splatnosti / stornovaná), PDF export
 - 🧾 **Prijímové pokladničné doklady (PPD)** — hotovostné a kartové platby
-- 👥 **Kontakty** — Zákazníci a Dodávatelia s **automatickým dopĺňaním IČO/DIČ z registra** (registeruz.sk)
-- 📦 **Artikle a Skupiny** — katalóg produktov a služieb so stromovou štruktúrou
+- 👥 **Kontakty** — Zákazníci a Dodávatelia s **automatickým dopĺňaním z obchodných registrov SR/CZ**
+- 📦 **Artikle a Skupiny** — katalóg produktov a služieb, stromová štruktúra skupín
 - 📈 **Reporty** — top zákazníci, obrat za obdobie, prehľad faktúr
 - ⚙️ **Nastavenia** — firma, číslovanie dokladov, DPH sadzby, pripojenie, používatelia
 
 ### Bezpečnosť
-- 🔐 Prihlásenie emailom + heslom (Supabase Auth)
-- 🛡️ **Row Level Security (RLS)** v Postgres — každý dotaz musí byť autentifikovaný
+- 🔐 Prihlásenie emailom + heslom (cloud Auth)
+- 🛡️ **Row Level Security** — každý dotaz musí byť autentifikovaný
 - ⏱️ Automatické odhlásenie po 10 minútach nečinnosti
-- 🚫 **Rate limit prihlásenia**: 5 neúspešných pokusov → 15 min blok (aplikáčne) + Supabase Auth (5 pokusov / 5 min z IP)
+- 🚫 **Rate limit prihlásenia**: 5 neúspešných pokusov → 15 min blok (aplikáčne) + cloud Auth limit (5/5min z IP)
 
 ### Plánované do budúcna
-- 💰 **Účtovníctvo** — prijaté faktúry, banka, účtovný denník, účtový rozvrh
+- 💰 **Účtovníctvo** — prijaté faktúry, banka, účtovný denník, účtovný rozvrh
 - 🏦 Bankový import výpisov
 - 📧 Automatické odosielanie faktúr emailom
-- 🎨 Logo firmy na faktúrach (upload do Supabase Storage)
+- 🎨 Logo firmy na faktúrach
+- 🔢 2FA / MFA pre admina
 
 ---
 
@@ -40,65 +41,53 @@ Moderný fakturačný systém pre **Apexholding, s.r.o.** — single-page HTML a
 
 **Priamo z GitHub Pages (nič sa nemusí inštalovať):**
 
-👉 **https://k4ucc1.github.io/cauntpex/**
+👉 **https://k4ucc1.github.io/apexfinance/**
 
 Stačí kliknúť a prihlásiť sa.
 
 ### Možnosť A — Lokálne
 
 ```bash
-# 1. Klonovať repozitár
-git clone https://github.com/k4ucc1/cauntpex.git
-cd cauntpex
-
-# 2. Otvoriť v prehliadači
-#    - Windows: dvojklik na index.html
-#    - Alebo: start index.html
-#    - Alebo: v prehliadači Ctrl+O → vybrať súbor
+git clone https://github.com/k4ucc1/apexfinance.git
+cd apexfinance
+# Otvor index.html v prehliadači (dvojklik)
 ```
 
-To je všetko! Aplikácia nabehne s prednastaveným pripojením k Supabase.
+Aplikácia nabehne s prednastaveným pripojením.
 
 ### Možnosť B — Iný hosting
 
-Ak by si chcel inde (Vercel, Netlify, vlastný server):
-- Stačí nahrať `index.html` + `apex-app.js` kdekoľvek s podporou statických súborov
+- **Netlify** / **Vercel** / **Cloudflare Pages** — spoj s repom, automatický deploy pri push
+- Vlastný server — nahrať `index.html` + `apex-app.js` kdekoľvek s podporou statických súborov
 - Žiadny build step, žiadne npm install
 
 ---
 
-## 🗄️ Backend — Supabase
+## 🗄️ Backend
 
-Aplikácia už má prednastavené pripojenie k Supabase projektu:
-- **URL:** `https://qszcrlptiwircitfuela.supabase.co`
-- **Publishable key:** v `apex-app.js` (konštanty `DEFAULT_SUPABASE_URL`, `DEFAULT_SUPABASE_KEY`)
+Aplikácia funguje na **Supabase** (open-source backend-as-a-service):
+- 🐘 **PostgreSQL** databáza (Postgres + RLS)
+- 🔐 **Auth** (email + heslo, bcrypt hash)
+- 📦 **Storage** pre logá a prílohy
+- 🔄 **Realtime** API (pre budúcnosť)
+
+### Ako funguje bezpečnosť
+
+Aplikácia v klientskom kóde obsahuje **publishable key** — ten je **dizajnovaný** na zverejnenie (podobne ako Google Maps API key či Stripe publishable key). Bezpečnosť nedáva key, ale:
+
+1. **Row Level Security** v Postgres — každý SELECT/INSERT/UPDATE/DELETE musí prejsť cez RLS politiku
+2. **Auth JWT** — dotazy musia obsahovať platný token z úspešného prihlásenia
+3. **Heslá** sú v Auth službe (bcrypt hash), nikdy v kóde
+
+Bez platného prihlásenia vidí ktokoľvek iba `[]` (deny by default).
 
 ### Zmena databázy
-Ak chceš použiť inú Supabase databázu:
+
+Ak chceš použiť inú databázu:
 1. Otvor aplikáciu
-2. Pri prvom spustení vynechaj Setup screen (alebo neskôr: Nastavenia → Pripojenie)
-3. Zadaj novú URL a Publishable key
-4. Ulož — hodnoty sa uložia do `localStorage` prehliadača
-
-Alebo zmeň priamo v `apex-app.js`:
-```js
-const DEFAULT_SUPABASE_URL = 'https://TVOJ-PROJEKT.supabase.co';
-const DEFAULT_SUPABASE_KEY = 'sb_publishable_TVOJ_KEY';
-```
-
----
-
-## 🔐 Bezpečnostný model
-
-### Je Publishable key v kóde bezpečný?
-**ÁNO.** Supabase publishable/anon key je **výslovne dizajnovaný** na zverejnenie v klientskom kóde (web, mobilné aplikácie).
-
-- ❌ Key sám o sebe nedáva prístup k dátam
-- ✅ Prístup chráni **Row Level Security (RLS)** v Postgres — každý dotaz musí obsahovať platný JWT z úspešného prihlásenia
-- ✅ Bez prihásenia vidíť len prázdne polia `[]` (deny by default)
-- ✅ Heslá sú v Supabase Auth (bcrypt hash), nikdy v HTML
-
-Pre **public repo** (tento prípad): kód a publishable key sú verejne viditeľné, ale **bezpečné** vďaka RLS. Heslá a dáta sú chránené v Supabase.
+2. **Nastavenia → Pripojenie**
+3. Zadaj novú URL a publishable key
+4. Ulož
 
 ---
 
@@ -108,7 +97,7 @@ Pre **public repo** (tento prípad): kód a publishable key sú verejne viditeľ
 |---|---|
 | UI framework | Vue 3 (CDN, global build) |
 | Štýly | Tailwind CSS (CDN) |
-| Ikony | Inline SVG (vlastná sada) |
+| Ikony | Inline SVG (vlastná sada, farebná) |
 | Font | Inter (Google Fonts) |
 | Backend | Supabase (PostgreSQL + PostgREST + Auth) |
 | PDF | pdfMake (CDN) |
@@ -123,57 +112,49 @@ Pre **public repo** (tento prípad): kód a publishable key sú verejne viditeľ
 ## 📁 Štruktúra repa
 
 ```
-cauntpex/
-├── index.html                # Hlavný HTML (6 KB) - vstupný bod
-├── apex-app.js                # Vue aplikácia (~148 KB)
-├── apex-migration-fix.sql     # SQL migrácia databázy (v1.0.1)
-├── README.md                  # Tento súbor
-├── SETUP.md                   # Krok-za-krokom setup pre nový projekt
-├── LICENSE                    # All Rights Reserved (private repo)
-├── .gitignore                 # Ignorované súbory
-└── .env.example               # Template pre environment (voliteľné)
+apexfinance/
+├── index.html                # Hlavný HTML - vstupný bod
+├── apex-app.js               # Vue aplikácia
+├── apex-migration-fix.sql    # SQL migrácia databázy (v1.0.1)
+├── README.md                 # Tento súbor
+├── SETUP.md                  # Krok-za-krokom setup pre nový projekt
+├── LICENSE                   # All Rights Reserved
+├── .gitignore                # Ignorované súbory
+├── .nojekyll                 # Zabraňuje Jekyll spracovaniu na Pages
+└── .env.example              # Template pre environment (voliteľné)
 ```
 
 ---
 
 ## 📝 Úpravy a vývoj
 
-### Ako urobiť zmenu
-
-**Možnosť 1 — GitHub Web Editor** (najjednoduchšie)
-1. Choď na github.com/k4ucc1/cauntpex
+### Možnosť 1 — GitHub Web Editor (najjednoduchšie)
+1. Choď na https://github.com/k4ucc1/apexfinance
 2. Klikni na súbor → ✏️ Edit
 3. Zmeň, napíš commit message, commit
 
-**Možnosť 2 — VS Code + git** (odporúčané pre väčšie zmeny)
+### Možnosť 2 — VS Code + git
 ```bash
-git clone https://github.com/k4ucc1/cauntpex.git
-cd cauntpex
+git clone https://github.com/k4ucc1/apexfinance.git
+cd apexfinance
 # edit v VS Code
 git add .
 git commit -m "popis zmeny"
 git push
 ```
 
-**Možnosť 3 — cez OpenCode AI** (ak máš)
-- Povedz „zmeň X v ApexFakturácii" a opencode to spraví + commitne
-
-### Testovanie zmien lokálne
-Po klone alebo change:
-1. Otvor `index.html` v prehliadači
-2. Ak vidíš zmenu — OK
-3. Ak ti prehliadač cacheuje starú verziu: **Ctrl+Shift+R** (hard refresh)
+Po push sa GitHub Pages automaticky **rebuildne do 1-2 minút**.
 
 ---
 
 ## 📜 Licencia
 
-**All Rights Reserved** — súkromný repozitár pre Apexholding, s.r.o.  
-Bez explicitného písomného súhlasu nesmie byť kód distribuuovaný ani použitý v iných projektoch.
+**All Rights Reserved** — repozitár pre Apexholding, s.r.o.  
+Bez explicitného písomného súhlasu nesmie byť kód distribuovaný ani použitý v iných projektoch.
 
 ---
 
 ## 📞 Kontakt
 
 **Apexholding, s.r.o.**  
-Developed & maintained via OpenCode AI
+Aplikáciu vyvinul a spravuje: OpenCode AI

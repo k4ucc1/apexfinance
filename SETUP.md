@@ -1,4 +1,4 @@
-# Setup Guide — ApexHolding Fakturácia
+# Setup Guide — Apex Finance
 
 Tento návod slúži pre **novú inštaláciu** (ak chceš vytvoriť nový Supabase projekt od nuly). Existujúce inštalácie už tento setup majú hotový.
 
