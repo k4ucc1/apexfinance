@@ -867,6 +867,7 @@ const InvoiceList = {
 function generateInvoicePDF(inv, items, partner, company){
   if(!window.pdfMake){ UI.toast('PDF knižnica sa nenačítala','error'); return; }
   company=company||{}; partner=partner||{};
+  const isVatPayer=!!company.vat_payer;
   const computed = items.map(it => ({ it, c: calcItem(it) }));
   const vatGroups={}; let subtotal=0, vatTotal=0;
   computed.forEach(({it, c})=>{
@@ -902,41 +903,65 @@ function generateInvoicePDF(inv, items, partner, company){
     { text:[partner.address, partner.zip, partner.city].filter(Boolean).join(', '), fontSize:9, color:'#64748b', margin:[0,2,0,0] },
     { text:`IČO: ${partner.ico||''}    DIČ: ${partner.dic||''}${partner.ic_dph?'    IČ DPH: '+partner.ic_dph:''}`, fontSize:9, color:'#64748b', margin:[0,2,0,0] }
   ], margin:[0,0,0,20] });
-  const itemsTable={ table:{ widths:['*',45,50,60,50,60], headerRows:1, body:[[
-    {text:'Popis', style:'th'}, {text:'MJ', style:'th', alignment:'center'}, {text:'Množ.', style:'th', alignment:'right'}, {text:'Cena/MJ', style:'th', alignment:'right'}, {text:'DPH', style:'th', alignment:'center'}, {text:'Spolu s DPH', style:'th', alignment:'right'}
-  ]] }, layout:{ hLineColor:()=>'#e2e8f0', vLineColor:()=>'#fff', fillColor:(i)=>i===0?'#f1f5f9':null, paddingTop:()=>6, paddingBottom:()=>6 } };
-  computed.forEach(({it, c})=>{
-    itemsTable.table.body.push([
-      {text: it.name+(it.description?'\n'+it.description:''), fontSize:9},
-      {text: it.unit, fontSize:9, alignment:'center', color:'#64748b'},
-      {text: fmtNum(it.quantity,3), fontSize:9, alignment:'right'},
-      {text: fmtEUR(it.unit_price), fontSize:9, alignment:'right'},
-      {text: it.vat_rate===null?'NaN':it.vat_rate+'%', fontSize:9, alignment:'center', color:'#64748b'},
-      {text: fmtEUR(c.total_gross), fontSize:9, alignment:'right', bold:true}
-    ]);
-  });
-  body.push(itemsTable);
-  const totalsTable={ table:{ widths:[80,'*',60,70], headerRows:1, body:[[
-    {text:'Sadzba DPH', style:'th'}, {text:'Základ', style:'th', alignment:'right'}, {text:'DPH', style:'th', alignment:'right'}, {text:'Spolu s DPH', style:'th', alignment:'right'}
-  ]] }, layout:{ hLineColor:()=>'#e2e8f0', vLineColor:()=>'#fff', fillColor:(i)=>i===0?'#f1f5f9':null } };
-  vatRows.forEach(r=>{
-    totalsTable.table.body.push([
-      {text: r.rate===null?'Nie je predmetom':r.rate+'%', fontSize:9},
-      {text: fmtEUR(r.base), fontSize:9, alignment:'right'},
-      {text: fmtEUR(r.vat), fontSize:9, alignment:'right'},
-      {text: fmtEUR(r.base+r.vat), fontSize:9, alignment:'right'}
-    ]);
-  });
-  body.push({ stack:[totalsTable], margin:[0,16,0,0] });
-  body.push({ columns:[
-    { width:'*', text:'' },
-    { width:240, stack:[
-      { columns:[{width:'*', text:'Medzisúčet:', fontSize:10, color:'#64748b'},{width:'auto', text:fmtEUR(subtotal), fontSize:10, alignment:'right'}] },
-      { columns:[{width:'*', text:'DPH spolu:', fontSize:10, color:'#64748b', margin:[0,2,0,0]},{width:'auto', text:fmtEUR(vatTotal), fontSize:10, alignment:'right', margin:[0,2,0,0]}] },
-      { canvas:[{type:'rect', x:0, y:0, w:240, h:1, lineColor:'#e2e8f0'}], margin:[0,6,0,6] },
-      { columns:[{width:'*', text:'CELKOM K ÚHRADE:', fontSize:13, bold:true, color:'#1e293b'},{width:'auto', text:fmtEUR((inv.total!=null)?inv.total:(subtotal+vatTotal)), fontSize:15, bold:true, color:'#4f46e5', alignment:'right'}] }
-    ] }
-  ], margin:[0,12,0,0] });
+  if(isVatPayer){
+    const itemsTable={ table:{ widths:['*',45,50,60,50,60], headerRows:1, body:[[
+      {text:'Popis', style:'th'}, {text:'MJ', style:'th', alignment:'center'}, {text:'Množ.', style:'th', alignment:'right'}, {text:'Cena/MJ', style:'th', alignment:'right'}, {text:'DPH', style:'th', alignment:'center'}, {text:'Spolu s DPH', style:'th', alignment:'right'}
+    ]] }, layout:{ hLineColor:()=>'#e2e8f0', vLineColor:()=>'#fff', fillColor:(i)=>i===0?'#f1f5f9':null, paddingTop:()=>6, paddingBottom:()=>6 } };
+    computed.forEach(({it, c})=>{
+      itemsTable.table.body.push([
+        {text: it.name+(it.description?'\n'+it.description:''), fontSize:9},
+        {text: it.unit, fontSize:9, alignment:'center', color:'#64748b'},
+        {text: fmtNum(it.quantity,3), fontSize:9, alignment:'right'},
+        {text: fmtEUR(it.unit_price), fontSize:9, alignment:'right'},
+        {text: it.vat_rate===null?'NaN':it.vat_rate+'%', fontSize:9, alignment:'center', color:'#64748b'},
+        {text: fmtEUR(c.total_gross), fontSize:9, alignment:'right', bold:true}
+      ]);
+    });
+    body.push(itemsTable);
+    const totalsTable={ table:{ widths:[80,'*',60,70], headerRows:1, body:[[
+      {text:'Sadzba DPH', style:'th'}, {text:'Základ', style:'th', alignment:'right'}, {text:'DPH', style:'th', alignment:'right'}, {text:'Spolu s DPH', style:'th', alignment:'right'}
+    ]] }, layout:{ hLineColor:()=>'#e2e8f0', vLineColor:()=>'#fff', fillColor:(i)=>i===0?'#f1f5f9':null } };
+    vatRows.forEach(r=>{
+      totalsTable.table.body.push([
+        {text: r.rate===null?'Nie je predmetom':r.rate+'%', fontSize:9},
+        {text: fmtEUR(r.base), fontSize:9, alignment:'right'},
+        {text: fmtEUR(r.vat), fontSize:9, alignment:'right'},
+        {text: fmtEUR(r.base+r.vat), fontSize:9, alignment:'right'}
+      ]);
+    });
+    body.push({ stack:[totalsTable], margin:[0,16,0,0] });
+    body.push({ columns:[
+      { width:'*', text:'' },
+      { width:240, stack:[
+        { columns:[{width:'*', text:'Medzisúčet:', fontSize:10, color:'#64748b'},{width:'auto', text:fmtEUR(subtotal), fontSize:10, alignment:'right'}] },
+        { columns:[{width:'*', text:'DPH spolu:', fontSize:10, color:'#64748b', margin:[0,2,0,0]},{width:'auto', text:fmtEUR(vatTotal), fontSize:10, alignment:'right', margin:[0,2,0,0]}] },
+        { canvas:[{type:'rect', x:0, y:0, w:240, h:1, lineColor:'#e2e8f0'}], margin:[0,6,0,6] },
+        { columns:[{width:'*', text:'CELKOM K ÚHRADE:', fontSize:13, bold:true, color:'#1e293b'},{width:'auto', text:fmtEUR((inv.total!=null)?inv.total:(subtotal+vatTotal)), fontSize:15, bold:true, color:'#4f46e5', alignment:'right'}] }
+      ] }
+    ], margin:[0,12,0,0] });
+  } else {
+    const itemsTable={ table:{ widths:['*',45,50,60,60], headerRows:1, body:[[
+      {text:'Popis', style:'th'}, {text:'MJ', style:'th', alignment:'center'}, {text:'Množ.', style:'th', alignment:'right'}, {text:'Cena/MJ', style:'th', alignment:'right'}, {text:'Spolu', style:'th', alignment:'right'}
+    ]] }, layout:{ hLineColor:()=>'#e2e8f0', vLineColor:()=>'#fff', fillColor:(i)=>i===0?'#f1f5f9':null, paddingTop:()=>6, paddingBottom:()=>6 } };
+    computed.forEach(({it, c})=>{
+      itemsTable.table.body.push([
+        {text: it.name+(it.description?'\n'+it.description:''), fontSize:9},
+        {text: it.unit, fontSize:9, alignment:'center', color:'#64748b'},
+        {text: fmtNum(it.quantity,3), fontSize:9, alignment:'right'},
+        {text: fmtEUR(it.unit_price), fontSize:9, alignment:'right'},
+        {text: fmtEUR(c.total_gross), fontSize:9, alignment:'right', bold:true}
+      ]);
+    });
+    body.push(itemsTable);
+    body.push({ text:'Nie sme platcom DPH.', fontSize:9, color:'#64748b', margin:[0,8,0,0] });
+    body.push({ columns:[
+      { width:'*', text:'' },
+      { width:240, stack:[
+        { canvas:[{type:'rect', x:0, y:0, w:240, h:1, lineColor:'#e2e8f0'}], margin:[0,6,6] },
+        { columns:[{width:'*', text:'CELKOM K ÚHRADE:', fontSize:13, bold:true, color:'#1e293b'},{width:'auto', text:fmtEUR(inv.total!=null?inv.total:subtotal), fontSize:15, bold:true, color:'#4f46e5', alignment:'right'}] }
+      ] }
+    ], margin:[0,12,0,0] });
+  }
   if(inv.note) body.push({ text: inv.note, fontSize:9, color:'#64748b', margin:[0,16,0,0] });
   body.push({ columns:[
     { width:'*', text:`Spôsob úhrady: ${(PAYMENT_METHODS[inv.payment_method]||'Prevod')}`, fontSize:8, color:'#94a3b8', margin:[0,30,0,0] },
@@ -949,6 +974,7 @@ function generateInvoicePDF(inv, items, partner, company){
 
 function printInvoice(inv, items, partner, company){
   company=company||{}; partner=partner||{};
+  const isVatPayer=!!company.vat_payer;
   const computed = items.map(it => ({ it, c: calcItem(it) }));
   const vatGroups={}; let subtotal=0, vatTotal=0;
   computed.forEach(({it, c})=>{
@@ -958,9 +984,6 @@ function printInvoice(inv, items, partner, company){
     subtotal+=c.total_net; vatTotal+=c.total_vat;
   });
   const esc=s=>String(s||'').replace(/[<>&"']/g,c=>`&#${c.charCodeAt(0)};`);
-  const vatRows=Object.values(vatGroups).sort((a,b)=>Number(b.rate||0)-Number(a.rate||0));
-  const itemsHtml=computed.map(({it,c})=>`<tr><td>${esc(it.name)}${it.description?'<br><span class="desc">'+esc(it.description)+'</span>':''}</td><td class="c">${esc(it.unit)}</td><td class="r">${fmtNum(it.quantity,3)}</td><td class="r">${fmtEUR(it.unit_price)}</td><td class="c">${it.vat_rate===null?'NaN':it.vat_rate+'%'}</td><td class="r b">${fmtEUR(c.total_gross)}</td></tr>`).join('');
-  const vatHtml=vatRows.map(r=>`<tr><td>${r.rate===null?'Nie je predmetom':r.rate+'%'}</td><td class="r">${fmtEUR(r.base)}</td><td class="r">${fmtEUR(r.vat)}</td><td class="r">${fmtEUR(r.base+r.vat)}</td></tr>`).join('');
   const total=(inv.total!=null)?inv.total:(subtotal+vatTotal);
   const w=window.open('','_blank','width=900,height=700,scrollbars=yes');
   w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Faktúra ${esc(inv.number)}</title><style>
@@ -989,6 +1012,7 @@ function printInvoice(inv, items, partner, company){
     .totals .row.total .val{font-size:15px;color:#4f46e5}
     .note{margin-top:16px;font-size:9px;color:#64748b}
     .footer{margin-top:30px;font-size:8px;color:#94a3b8;display:flex;justify-content:space-between}
+    .no-vat{font-size:9px;color:#64748b;margin-bottom:16px}
     @media print{body{padding:20mm}}@page{size:A4;margin:15mm}
   </style></head><body>
   <div class="header">
@@ -1015,18 +1039,21 @@ function printInvoice(inv, items, partner, company){
     <div class="val">${esc(partner.name||'')}</div>
     <div class="sub">${[partner.address, partner.zip, partner.city].filter(Boolean).join(', ')}</div>
     <div class="sub">I\u010CO: ${partner.ico||''}    DI\u010C: ${partner.dic||''}${partner.ic_dph?'    I\u010C DPH: '+partner.ic_dph:''}</div>
-  </div>
-  <table><thead><tr><th>Popis</th><th class="c">MJ</th><th class="r">Mno\u017e.</th><th class="r">Cena/MJ</th><th class="c">DPH</th><th class="r">Spolu s DPH</th></tr></thead><tbody>${itemsHtml}</tbody></table>
-  <table><thead><tr><th>Sadzba DPH</th><th class="r">Z\u00e1klad</th><th class="r">DPH</th><th class="r">Spolu s DPH</th></tr></thead><tbody>${vatHtml}</tbody></table>
-  <div class="totals">
-    <div class="row"><span>Medzis\u00fa\u010det:</span><span>${fmtEUR(subtotal)}</span></div>
-    <div class="row"><span>DPH spolu:</span><span>${fmtEUR(vatTotal)}</span></div>
-    <div class="row total"><span>CELKOM K \u00daHRADE:</span><span class="val">${fmtEUR(total)}</span></div>
-  </div>
-  ${inv.note?'<div class="note">'+esc(inv.note)+'</div>':''}
-  <div class="footer"><span>Sp\u00f4sob \u00fahrady: ${PAYMENT_METHODS[inv.payment_method]||'Prevod'}</span><span>Vystaven\u00e9 v Apex Finance</span></div>
-  <script>window.onload=function(){window.print();window.close();}<\/script>
-  </body></html>`);
+  </div>`);
+  if(isVatPayer){
+    const vatRows=Object.values(vatGroups).sort((a,b)=>Number(b.rate||0)-Number(a.rate||0));
+    const itemsHtml=computed.map(({it,c})=>'<tr><td>'+esc(it.name)+(it.description?'<br><span class="desc">'+esc(it.description)+'</span>':'')+'</td><td class="c">'+esc(it.unit)+'</td><td class="r">'+fmtNum(it.quantity,3)+'</td><td class="r">'+fmtEUR(it.unit_price)+'</td><td class="c">'+(it.vat_rate===null?'NaN':it.vat_rate+'%')+'</td><td class="r b">'+fmtEUR(c.total_gross)+'</td></tr>').join('');
+    const vatHtml=vatRows.map(r=>'<tr><td>'+(r.rate===null?'Nie je predmetom':r.rate+'%')+'</td><td class="r">'+fmtEUR(r.base)+'</td><td class="r">'+fmtEUR(r.vat)+'</td><td class="r">'+fmtEUR(r.base+r.vat)+'</td></tr>').join('');
+    w.document.write('<table><thead><tr><th>Popis</th><th class="c">MJ</th><th class="r">Mno\u017e.</th><th class="r">Cena/MJ</th><th class="c">DPH</th><th class="r">Spolu s DPH</th></tr></thead><tbody>'+itemsHtml+'</tbody></table>');
+    w.document.write('<table><thead><tr><th>Sadzba DPH</th><th class="r">Z\u00e1klad</th><th class="r">DPH</th><th class="r">Spolu s DPH</th></tr></thead><tbody>'+vatHtml+'</tbody></table>');
+    w.document.write('<div class="totals"><div class="row"><span>Medzis\u00fa\u010det:</span><span>'+fmtEUR(subtotal)+'</span></div><div class="row"><span>DPH spolu:</span><span>'+fmtEUR(vatTotal)+'</span></div><div class="row total"><span>CELKOM K \u00daHRADE:</span><span class="val">'+fmtEUR(total)+'</span></div></div>');
+  } else {
+    const itemsHtml=computed.map(({it,c})=>'<tr><td>'+esc(it.name)+(it.description?'<br><span class="desc">'+esc(it.description)+'</span>':'')+'</td><td class="c">'+esc(it.unit)+'</td><td class="r">'+fmtNum(it.quantity,3)+'</td><td class="r">'+fmtEUR(it.unit_price)+'</td><td class="r b">'+fmtEUR(c.total_gross)+'</td></tr>').join('');
+    w.document.write('<div class="no-vat">Nie sme platcom DPH.</div>');
+    w.document.write('<table><thead><tr><th>Popis</th><th class="c">MJ</th><th class="r">Mno\u017e.</th><th class="r">Cena/MJ</th><th class="r">Spolu</th></tr></thead><tbody>'+itemsHtml+'</tbody></table>');
+    w.document.write('<div class="totals"><div class="row total"><span>CELKOM K \u00daHRADE:</span><span class="val">'+fmtEUR(total)+'</span></div></div>');
+  }
+  w.document.write((inv.note?'<div class="note">'+esc(inv.note)+'</div>':'')+'<div class="footer"><span>Sp\u00f4sob \u00fahrady: '+(PAYMENT_METHODS[inv.payment_method]||'Prevod')+'</span><span>Vystaven\u00e9 v Apex Finance</span></div><script>window.onload=function(){window.print();window.close();}<\/script></body></html>');
   w.document.close();
 }
 
@@ -1080,11 +1107,12 @@ const InvoiceEditor = {
       }
     }
     const totals=computed(()=>calcInvoice(items.value));
+    function defaultVat(){ return company.value?.vat_payer ? 23 : 0; }
     function addEmptyItem(){
-      items.value.push({ _uid:uid(), article_id:null, name:'', description:'', quantity:1, unit:'ks', unit_price:0, vat_rate:23, discount_pct:0, discount_amount:0, total_net:0, total_vat:0, total_gross:0 });
+      items.value.push({ _uid:uid(), article_id:null, name:'', description:'', quantity:1, unit:'ks', unit_price:0, vat_rate:defaultVat(), discount_pct:0, discount_amount:0, total_net:0, total_vat:0, total_gross:0 });
     }
     function addItemFromArticle(a){
-      items.value.push({ _uid:uid(), article_id:a.id, name:a.name, description:a.description||'', quantity:1, unit:a.unit||'ks', unit_price:Number(a.price||0), vat_rate:Number(a.vat_rate ?? 23), discount_pct:0, discount_amount:0, total_net:0, total_vat:0, total_gross:0 });
+      items.value.push({ _uid:uid(), article_id:a.id, name:a.name, description:a.description||'', quantity:1, unit:a.unit||'ks', unit_price:Number(a.price||0), vat_rate:company.value?.vat_payer ? Number(a.vat_rate ?? 23) : 0, discount_pct:0, discount_amount:0, total_net:0, total_vat:0, total_gross:0 });
       articles.show=false;
     }
     function removeItem(idx){ items.value.splice(idx, 1); }
@@ -1101,6 +1129,7 @@ const InvoiceEditor = {
       if(invalid){ UI.toast('Niektorá položka nemá názov alebo množstvo','warn'); return; }
       saving.value=true;
       try {
+        if(!company.value?.vat_payer){ items.value.forEach(it=>{ it.vat_rate=0; }); }
         const t=totals.value;
         let finalNumber=form.number;
         if(!form.id){ try { finalNumber=await nextDocNumber('invoice','FA'); } catch(e){ UI.toast('Nepodarilo sa vygenerovať číslo','warn'); } }
@@ -1174,8 +1203,8 @@ const InvoiceEditor = {
                   <div class="col-span-3 sm:col-span-1"><label class="text-[10px] font-semibold text-slate-500 uppercase">MJ</label><select class="input input-sm" v-model="it.unit"><option v-for="u in ARTICLE_UNITS" :key="u" :value="u">{{ u }}</option></select></div>
                   <div class="col-span-3 sm:col-span-1"><label class="text-[10px] font-semibold text-slate-500 uppercase">Množ.</label><input class="input input-sm" type="number" step="1" v-model.number="it.quantity"/></div>
                   <div class="col-span-6 sm:col-span-2"><label class="text-[10px] font-semibold text-slate-500 uppercase">Cena/MJ</label><input class="input input-sm" type="number" step="0.01" v-model.number="it.unit_price"/></div>
-                  <div class="col-span-4 sm:col-span-1"><label class="text-[10px] font-semibold text-slate-500 uppercase">DPH</label><select class="input input-sm" v-model.number="it.vat_rate"><option v-for="v in VAT_RATES" :key="v.code" :value="v.rate">{{ v.rate===null?'NaN':v.rate+'%' }}</option></select></div>
-                  <div class="col-span-4 sm:col-span-1"><label class="text-[10px] font-semibold text-slate-500 uppercase">Zľava %</label><input class="input input-sm" type="number" step="0.01" v-model.number="it.discount_pct"/></div>
+                  <div v-if="company?.vat_payer" class="col-span-4 sm:col-span-1"><label class="text-[10px] font-semibold text-slate-500 uppercase">DPH</label><select class="input input-sm" v-model.number="it.vat_rate"><option v-for="v in VAT_RATES" :key="v.code" :value="v.rate">{{ v.rate===null?'NaN':v.rate+'%' }}</option></select></div>
+                  <div class="col-span-4 sm:col-span-1" :class="{'sm:col-span-2':!company?.vat_payer}"><label class="text-[10px] font-semibold text-slate-500 uppercase">Zľava %</label><input class="input input-sm" type="number" step="0.01" v-model.number="it.discount_pct"/></div>
                   <div class="col-span-3 sm:col-span-1"><label class="text-[10px] font-semibold text-slate-500 uppercase">Spolu</label><div class="text-sm font-bold text-slate-900 py-1.5">{{ fmtEUR(itemGross(it)) }}</div></div>
                   <div class="col-span-2 sm:col-span-1 flex items-end justify-end gap-0.5 pt-5"><button class="icon-btn text-slate-500 btn-xs" @click="moveItemUp(idx)" :disabled="idx===0"><icon name="chevron-up" :size="14"></icon></button><button class="icon-btn text-slate-500 btn-xs" @click="moveItemDown(idx)" :disabled="idx===items.length-1"><icon name="chevron-down" :size="14"></icon></button><button class="icon-btn text-red-600 btn-xs" @click="removeItem(idx)"><icon name="trash" :size="14"></icon></button></div>
                 </div>
@@ -1200,11 +1229,13 @@ const InvoiceEditor = {
             <div class="card p-5 xl:sticky xl:top-20">
               <h3 class="font-bold text-slate-900 mb-3 flex items-center gap-2"><icon name="calculator" :size="18" class="text-brand-600"></icon> Súhrn</h3>
               <div class="space-y-2 text-sm">
-                <div class="flex justify-between"><span class="text-slate-500">Základ (bez DPH)</span><span class="font-semibold">{{ fmtEUR(totals.subtotal) }}</span></div>
-                <div v-for="b in totals.byVat" :key="String(b.rate)" class="flex justify-between text-xs pl-2 border-l-2 border-slate-200"><span class="text-slate-500">DPH {{ b.rate===null?'NaN':b.rate+'%' }} (z {{ fmtEUR(b.net) }})</span><span class="font-medium">{{ fmtEUR(b.vat) }}</span></div>
-                <div class="flex justify-between"><span class="text-slate-500">DPH spolu</span><span class="font-semibold">{{ fmtEUR(totals.vatTotal) }}</span></div>
-                <div v-if="totals.rounding!==0" class="flex justify-between text-xs"><span class="text-slate-500">Zaokrúhlenie</span><span class="font-medium">{{ fmtEUR(totals.rounding) }}</span></div>
-                <div class="border-t border-slate-200 pt-2 mt-2 flex justify-between items-baseline"><span class="text-slate-700 font-semibold">Celkom k úhrade</span><span class="text-2xl font-extrabold text-brand-700">{{ fmtEUR(totals.total) }}</span></div>
+                <template v-if="company?.vat_payer">
+                  <div class="flex justify-between"><span class="text-slate-500">Základ (bez DPH)</span><span class="font-semibold">{{ fmtEUR(totals.subtotal) }}</span></div>
+                  <div v-for="b in totals.byVat" :key="String(b.rate)" class="flex justify-between text-xs pl-2 border-l-2 border-slate-200"><span class="text-slate-500">DPH {{ b.rate===null?'NaN':b.rate+'%' }} (z {{ fmtEUR(b.net) }})</span><span class="font-medium">{{ fmtEUR(b.vat) }}</span></div>
+                  <div class="flex justify-between"><span class="text-slate-500">DPH spolu</span><span class="font-semibold">{{ fmtEUR(totals.vatTotal) }}</span></div>
+                  <div v-if="totals.rounding!==0" class="flex justify-between text-xs"><span class="text-slate-500">Zaokrúhlenie</span><span class="font-medium">{{ fmtEUR(totals.rounding) }}</span></div>
+                </template>
+                <div :class="[company?.vat_payer ? 'border-t border-slate-200 pt-2 mt-2' : '']" class="flex justify-between items-baseline"><span class="text-slate-700 font-semibold">Celkom k úhrade</span><span class="text-2xl font-extrabold text-brand-700">{{ fmtEUR(totals.total) }}</span></div>
               </div>
               <div v-if="form.id" class="mt-3 bg-brand-50 rounded-lg p-3 text-center"><div class="w-24 h-24 mx-auto bg-white rounded-lg flex items-center justify-center border border-brand-200"><icon name="qr-code" :size="48" class="text-brand-700"></icon></div><div class="text-[10px] text-slate-500 mt-1">QR platba</div></div>
               <div class="space-y-2 mt-4">
