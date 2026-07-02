@@ -71,27 +71,35 @@ const roundWhole = (n) => Math.round(Number(n));
 const uid = () => 'tmp_'+Math.random().toString(36).slice(2,11);
 const debounce = (fn,wait=300) => { let t; return function(...a){ clearTimeout(t); t=setTimeout(()=>fn.apply(this,a),wait); }; };
 
-function calcItem(item) {
+function calcItem(item, opts) {
   const qty=Number(item.quantity||0), price=Number(item.unit_price||0);
-  const gross=qty*price;
+  const rate=item.vat_rate==null?0:Number(item.vat_rate);
   const discPct=Number(item.discount_pct||0), discAmt=Number(item.discount_amount||0);
+  if(opts?.priceIncludesVat && rate>0){
+    const grossTot=qty*price;
+    const netBase=grossTot/(1+rate/100);
+    let net=netBase*(1-discPct/100)-discAmt;
+    if(net<0) net=0;
+    const vat=net*(rate/100);
+    return { total_net:round2(net), total_vat:round2(vat), total_gross:round2(net+vat) };
+  }
+  const gross=qty*price;
   let net=gross*(1-discPct/100)-discAmt;
   if(net<0) net=0;
-  const rate=item.vat_rate==null?0:Number(item.vat_rate);
   const vat=net*(rate/100);
   return { total_net:round2(net), total_vat:round2(vat), total_gross:round2(net+vat) };
 }
-function calcInvoice(items, useRounding=true) {
+function calcInvoice(items, opts) {
   const byVat={}; let subtotal=0, vatTotal=0, gross=0;
   items.forEach(it=>{
-    const c=calcItem(it);
+    const c=calcItem(it, opts);
     const key=String(it.vat_rate ?? 'null');
     if(!byVat[key]) byVat[key]={rate:it.vat_rate,net:0,vat:0,gross:0};
     byVat[key].net+=c.total_net; byVat[key].vat+=c.total_vat; byVat[key].gross+=c.total_gross;
     subtotal+=c.total_net; vatTotal+=c.total_vat; gross+=c.total_gross;
   });
   let rounding=0;
-  if(useRounding) rounding=round2(roundWhole(gross)-gross);
+  if(opts?.useRounding!==false) rounding=round2(roundWhole(gross)-gross);
   return {
     subtotal:round2(subtotal), vatTotal:round2(vatTotal), gross:round2(gross),
     rounding, total:round2(gross+rounding),
@@ -868,7 +876,8 @@ function generateInvoicePDF(inv, items, partner, company){
   if(!window.pdfMake){ UI.toast('PDF knižnica sa nenačítala','error'); return; }
   company=company||{}; partner=partner||{};
   const isVatPayer=!!company.vat_payer;
-  const computed = items.map(it => ({ it, c: calcItem(it) }));
+  const calcOpts={ priceIncludesVat: isVatPayer };
+  const computed = items.map(it => ({ it, c: calcItem(it, calcOpts) }));
   const vatGroups={}; let subtotal=0, vatTotal=0;
   computed.forEach(({it, c})=>{
     const k=String(it.vat_rate ?? 'null');
@@ -975,7 +984,8 @@ function generateInvoicePDF(inv, items, partner, company){
 function printInvoice(inv, items, partner, company){
   company=company||{}; partner=partner||{};
   const isVatPayer=!!company.vat_payer;
-  const computed = items.map(it => ({ it, c: calcItem(it) }));
+  const calcOpts={ priceIncludesVat: isVatPayer };
+  const computed = items.map(it => ({ it, c: calcItem(it, calcOpts) }));
   const vatGroups={}; let subtotal=0, vatTotal=0;
   computed.forEach(({it, c})=>{
     const k=String(it.vat_rate ?? 'null');
@@ -1106,7 +1116,8 @@ const InvoiceEditor = {
         loading.value=false;
       }
     }
-    const totals=computed(()=>calcInvoice(items.value));
+    const calcOpts=computed(()=>({ priceIncludesVat: !!company.value?.vat_payer }));
+    const totals=computed(()=>calcInvoice(items.value, calcOpts.value));
     function defaultVat(){ return company.value?.vat_payer ? 23 : 0; }
     function addEmptyItem(){
       items.value.push({ _uid:uid(), article_id:null, name:'', description:'', quantity:1, unit:'ks', unit_price:0, vat_rate:defaultVat(), discount_pct:0, discount_amount:0, total_net:0, total_vat:0, total_gross:0 });
@@ -1145,7 +1156,7 @@ const InvoiceEditor = {
           invId=data.id; form.id=invId; form.number=finalNumber;
         }
         const itemRows=items.value.map((it,idx)=>{
-          const c=calcItem(it);
+          const c=calcItem(it, calcOpts.value);
           return { invoice_id:invId, line_no:idx+1, article_id:it.article_id||null, name:it.name, description:it.description, quantity:Number(it.quantity), unit:it.unit, unit_price:Number(it.unit_price), vat_rate:it.vat_rate, discount_pct:Number(it.discount_pct||0), discount_amount:Number(it.discount_amount||0), total_net:c.total_net, total_vat:c.total_vat, total_gross:c.total_gross };
         });
         if(itemRows.length){ const {error:ie}=await getSB().from('invoice_items').insert(itemRows); if(ie) throw ie; }
@@ -1165,7 +1176,7 @@ const InvoiceEditor = {
       else { Object.assign(form, patch); UI.toast('Označené ako zaplatené','success'); }
     }
     async function markSent(){ await save('sent'); }
-    function itemGross(it){ return calcItem(it).total_gross; }
+    function itemGross(it){ return calcItem(it, calcOpts.value).total_gross; }
     onMounted(load);
     return { loading, saving, form, items, totals, company, partners, articles, partnerEditor, addEmptyItem, addItemFromArticle, removeItem, moveItemUp, moveItemDown, pickPartner, openNewPartner, onPartnerSaved, recalcDueFromIssue, save, saveAndPdf, exportPDF, printInv, markPaid, markSent, itemGross, fmtEUR, fmtNum, VAT_RATES, ARTICLE_UNITS, INVOICE_STATUSES, PAYMENT_METHODS, emit };
   },
@@ -1202,7 +1213,7 @@ const InvoiceEditor = {
                   <div class="col-span-12 sm:col-span-5"><label class="text-[10px] font-semibold text-slate-500 uppercase">Názov</label><input class="input input-sm" v-model="it.name" placeholder="Napr. Konzultácia"/></div>
                   <div class="col-span-3 sm:col-span-1"><label class="text-[10px] font-semibold text-slate-500 uppercase">MJ</label><select class="input input-sm" v-model="it.unit"><option v-for="u in ARTICLE_UNITS" :key="u" :value="u">{{ u }}</option></select></div>
                   <div class="col-span-3 sm:col-span-1"><label class="text-[10px] font-semibold text-slate-500 uppercase">Množ.</label><input class="input input-sm" type="number" step="1" v-model.number="it.quantity"/></div>
-                  <div class="col-span-6 sm:col-span-2"><label class="text-[10px] font-semibold text-slate-500 uppercase">Cena/MJ</label><input class="input input-sm" type="number" step="0.01" v-model.number="it.unit_price"/></div>
+                  <div class="col-span-6 sm:col-span-2"><label class="text-[10px] font-semibold text-slate-500 uppercase">Cena/MJ{{ company?.vat_payer ? ' s DPH' : '' }}</label><input class="input input-sm" type="number" step="0.01" v-model.number="it.unit_price"/></div>
                   <div v-if="company?.vat_payer" class="col-span-4 sm:col-span-1"><label class="text-[10px] font-semibold text-slate-500 uppercase">DPH</label><select class="input input-sm" v-model.number="it.vat_rate"><option v-for="v in VAT_RATES" :key="v.code" :value="v.rate">{{ v.rate===null?'NaN':v.rate+'%' }}</option></select></div>
                   <div class="col-span-4 sm:col-span-1" :class="{'sm:col-span-2':!company?.vat_payer}"><label class="text-[10px] font-semibold text-slate-500 uppercase">Zľava %</label><input class="input input-sm" type="number" step="0.01" v-model.number="it.discount_pct"/></div>
                   <div class="col-span-3 sm:col-span-1"><label class="text-[10px] font-semibold text-slate-500 uppercase">Spolu</label><div class="text-sm font-bold text-slate-900 py-1.5">{{ fmtEUR(itemGross(it)) }}</div></div>
